@@ -522,7 +522,9 @@
             }
 
             async analysis(text, model) {
-                const response = await fetch(`https://a5dd-103-90-226-249.ngrok-free.app/api/sentiment?text=${encodeURIComponent(text)}&model=${model}`);
+                const response = await fetch(`https://3ff8-103-90-226-249.ngrok-free.app/api/sentiment?text=${encodeURIComponent(text)}&model=${model}`, {
+                    method: 'POST',
+                });
                 const data = await response.json();
 
                 return data.probabilities;
