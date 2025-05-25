@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vietnamese_Sentiment</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tensorflow/4.2.0/tf.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 24px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white;
+            padding: 40px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            animation: rotate 20s linear infinite;
+        }
+
+        @keyframes rotate {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            position: relative;
+            z-index: 1;
+        }
+
+        .main-content {
+            padding: 40px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            align-items: start;
+        }
+
+        .input-section {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+        }
+
+        .result-section {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            min-height: 500px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .section-title {
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .icon {
+            width: 24px;
+            height: 24px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        label {
+            display: block;
+            font-weight: 500;
+            color: #374151;
+            margin-bottom: 8px;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 150px;
+            padding: 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: all 0.3s ease;
+            resize: vertical;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+
+        .model-selection {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 15px;
+            align-items: end;
+        }
+
+        select {
+            padding: 12px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            font-size: 14px;
+            background: white;
+            transition: all 0.3s ease;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+
+        .file-upload {
+            position: relative;
+            display: inline-block;
+        }
+
+        .file-upload input[type=file] {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        .file-upload-btn {
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .file-upload-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(16, 185, 129, 0.3);
+        }
+
+        .predict-btn {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+        }
+
+        .predict-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 30px rgba(99, 102, 241, 0.4);
+        }
+
+        .predict-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top: 2px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .result-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        .result-placeholder {
+            color: #9ca3af;
+            font-size: 16px;
+        }
+
+        .result-display {
+            width: 100%;
+        }
+
+        .sentiment-result {
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .sentiment-result.main {
+            background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
+            transform: scale(1.02);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .sentiment-result.secondary {
+            background: linear-gradient(135deg, #f9fafb, #f3f4f6);
+            margin-bottom: 12px;
+            padding: 15px;
+            opacity: 0.8;
+            transform: scale(0.95);
+        }
+
+        .sentiment-label {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .sentiment-label.secondary {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .sentiment-positive {
+            color: #059669;
+        }
+
+        .sentiment-positive.main {
+            background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+        }
+
+        .sentiment-positive.secondary {
+            background: linear-gradient(135deg, #ecfdf5, #d1fae5);
+        }
+
+        .sentiment-negative {
+            color: #dc2626;
+        }
+
+        .sentiment-negative.main {
+            background: linear-gradient(135deg, #fee2e2, #fecaca);
+        }
+
+        .sentiment-negative.secondary {
+            background: linear-gradient(135deg, #fef2f2, #fee2e2);
+        }
+
+        .sentiment-neutral {
+            color: #d97706;
+        }
+
+        .sentiment-neutral.main {
+            background: linear-gradient(135deg, #fef3c7, #fde68a);
+        }
+
+        .sentiment-neutral.secondary {
+            background: linear-gradient(135deg, #fffbeb, #fef3c7);
+        }
+
+        .confidence-score {
+            font-size: 1.1rem;
+            font-weight: 500;
+            opacity: 0.8;
+        }
+
+        .confidence-score.secondary {
+            font-size: 0.9rem;
+            opacity: 0.7;
+        }
+
+        .confidence-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 4px;
+            margin: 15px 0;
+            overflow: hidden;
+        }
+
+        .confidence-bar.secondary {
+            height: 6px;
+            margin: 8px 0;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+
+        .results-container {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .secondary-results {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 15px;
+        }
+
+        .model-info {
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+            font-size: 14px;
+            color: #64748b;
+        }
+
+        .file-status {
+            margin-top: 10px;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .file-success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .file-error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+                gap: 20px;
+                padding: 20px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .model-selection {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 Phân tích Cảm xúc Review</h1>
+            <p>Sử dụng AI để phân tích cảm xúc trong các đánh giá về công ty</p>
+        </div>
+
+        <div class="main-content">
+            <div class="input-section">
+                <h2 class="section-title">
+                    <span class="icon">📝</span>
+                    Nhập Review
+                </h2>
+
+                <div class="form-group">
+                    <label for="reviewText">Nội dung review:</label>
+                    <textarea 
+                        id="reviewText" 
+                        placeholder="Nhập đánh giá về công ty của bạn tại đây... Ví dụ: 'Công ty có môi trường làm việc tốt, đồng nghiệp thân thiện, lương thưởng hợp lý...'"
+                    ></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Chọn Model AI:</label>
+                    <div class="model-selection">
+                        <select id="modelSelect">
+                            <option value="1">⚡ SVM Model (Lightest)</option>
+                            <option value="2">🎯 LSTM Model (Most stable)</option>
+                            <option value="3">🧠 Multi-chain LSTM-CNN Model (Smartest)</option>
+                        </select>
+                    </div>
+                    <div id="fileStatus"></div>
+                </div>
+
+                <button class="predict-btn" id="predictBtn">
+                    🔮 Phân tích Cảm xúc
+                </button>
+            </div>
+
+            <div class="result-section">
+                <h2 class="section-title">
+                    <span class="icon">📊</span>
+                    Kết quả Phân tích
+                </h2>
+
+                <div class="result-content" id="resultContent">
+                    <div class="result-placeholder">
+                        Kết quả phân tích sẽ hiển thị tại đây sau khi bạn nhập review và nhấn "Phân tích Cảm xúc"
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class SentimentAnalyzer {
+            constructor() {
+                this.models = new Map();
+                this.currentModel = 1;
+                this.isLoading = false;
+                this.modelInfo = [
+                    '⚡ SVM Model',
+                    '🎯 LSTM Model',
+                    '🧠 Multi-chain LSTM-CNN Model'
+                ]
+                this.initializeEventListeners();
+            }
+
+            initializeEventListeners() {
+                document.getElementById('predictBtn').addEventListener('click', this.predictSentiment.bind(this));
+                document.getElementById('modelSelect').addEventListener('change', this.handleModelChange.bind(this));
+            }
+
+            handleModelChange(event) {
+                const select = event.target;
+                this.currentModel = select.value;
+            }
+
+            async predictSentiment() {
+                const reviewText = document.getElementById('reviewText').value.trim();
+                const modelSelect = document.getElementById('modelSelect').value;
+                
+                if (!reviewText) {
+                    alert('Vui lòng nhập nội dung review');
+                    return;
+                }
+
+                this.setLoading(true);
+                
+                try {                    
+                    const probabilities = await this.analysis(reviewText, modelSelect);
+                    this.displayResult(probabilities);
+                } catch (error) {
+                    console.error('Lỗi phân tích:', error);
+                    this.displayError('Có lỗi xảy ra trong quá trình phân tích. Vui lòng thử lại.');
+                } finally {
+                    this.setLoading(false);
+                }
+            }
+
+            async analysis(text, model) {
+                const response = await fetch(`http://103.90.226.249:5000/api/sentiment?text=${encodeURIComponent(text)}&model=${model}`);
+                const data = await response.json();
+
+                return data.probabilities;
+            }
+
+            displayResult(probabilities) {
+                const prediction = probabilities.reduce((maxIdx, currentVal, idx, array) => {
+                    return currentVal > array[maxIdx] ? idx : maxIdx;
+                }, 0);
+                const resultContent = document.getElementById('resultContent');
+                
+                const sentimentLabels = [
+                    { text: '😊 Tích cực', class: 'sentiment-positive' },
+                    { text: '😐 Trung tính', class: 'sentiment-neutral' },
+                    { text: '😔 Tiêu cực', class: 'sentiment-negative' },
+                ];
+                
+                // Tạo array để sắp xếp theo probability
+                const results = probabilities.map((prob, index) => ({
+                    index,
+                    probability: prob,
+                    label: sentimentLabels[index],
+                    isPrediction: index === prediction
+                })).sort((a, b) => b.probability - a.probability);
+
+                const mainResult = results.find(r => r.isPrediction);
+                const secondaryResults = results.filter(r => !r.isPrediction);
+
+                const confidencePercent = Math.round(mainResult.probability * 100);
+
+                let html = `
+                    <div class="result-display">
+                        <div class="results-container">
+                            <div class="sentiment-result main ${mainResult.label.class}">
+                                <div class="sentiment-label">${mainResult.label.text}</div>
+                                <div class="confidence-score">Độ tin cậy: ${confidencePercent}%</div>
+                                <div class="confidence-bar">
+                                    <div class="confidence-fill" style="width: ${confidencePercent}%; background: currentColor;"></div>
+                                </div>
+                            </div>
+                            
+                            <div class="secondary-results">
+                `;
+
+                secondaryResults.forEach(result => {
+                    const percent = Math.round(result.probability * 100);
+                    html += `
+                        <div class="sentiment-result secondary ${result.label.class}">
+                            <div class="sentiment-label secondary">${result.label.text}</div>
+                            <div class="confidence-score secondary">${percent}%</div>
+                            <div class="confidence-bar secondary">
+                                <div class="confidence-fill" style="width: ${percent}%; background: currentColor;"></div>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                html += `
+                            </div>
+                        </div>
+                        <div class="model-info">
+                            <strong>Model sử dụng:</strong> ${this.modelInfo[+this.currentModel-1]}
+                        </div>
+                    </div>
+                `;
+
+                resultContent.innerHTML = html;
+            }
+
+            displayError(message) {
+                const resultContent = document.getElementById('resultContent');
+                resultContent.innerHTML = `
+                    <div class="result-display">
+                        <div class="sentiment-result main" style="background: linear-gradient(135deg, #fee2e2, #fecaca); color: #dc2626;">
+                            <div class="sentiment-label">❌ Lỗi</div>
+                            <div class="confidence-score">${message}</div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            setLoading(loading) {
+                this.isLoading = loading;
+                const predictBtn = document.getElementById('predictBtn');
+                
+                if (loading) {
+                    predictBtn.disabled = true;
+                    predictBtn.innerHTML = `
+                        <div class="loading">
+                            <div class="spinner"></div>
+                            Đang phân tích...
+                        </div>
+                    `;
+                } else {
+                    predictBtn.disabled = false;
+                    predictBtn.innerHTML = '🔮 Phân tích Cảm xúc';
+                }
+            }
+        }
+
+        // Khởi tạo ứng dụng
+        document.addEventListener('DOMContentLoaded', () => {
+            new SentimentAnalyzer();
+        });
+    </script>
+</body>
+</html>
